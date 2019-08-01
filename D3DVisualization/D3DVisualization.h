@@ -87,6 +87,14 @@ extern "C" {
 	__declspec(dllexport) void __cdecl RemoveBookmark();
 }
 
+extern "C" {
+	__declspec(dllexport) void __cdecl AddBookmarksFromFile(int page_num);
+}
+
+extern "C" {
+	__declspec(dllexport) void __cdecl ClearBookmarks();
+}
+
 struct AnimationCounter
 {
 	float cTR;
@@ -123,6 +131,8 @@ public:
 	void ViewBookmark(int page_num);
 	void AddBookmark();
 	void RemoveBookmark();
+	void AddBookmarksFromFile(int page_num);
+	void ClearBookmarks();
 
 
 	// Special function definitions to ensure alignment between c# and c++ 

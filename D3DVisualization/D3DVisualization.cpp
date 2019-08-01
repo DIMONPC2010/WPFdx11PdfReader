@@ -131,6 +131,16 @@ extern void __cdecl RemoveBookmark()
 	pApplication->RemoveBookmark();
 }
 
+extern void __cdecl AddBookmarksFromFile(int page_num)
+{
+	pApplication->AddBookmarksFromFile(page_num);
+}
+
+extern void __cdecl ClearBookmarks()
+{
+	pApplication->ClearBookmarks();
+}
+
 
 PdfRender::PdfRender() :
 	  m_pagesNum(PAGE_NUM)
@@ -561,6 +571,16 @@ void PdfRender::RemoveBookmark()
 	std::list<int>::iterator it;
 	for (it = m_bookmarks.begin(); *it != m_Doc->NowView(); ++it);
 		m_bookmarks.erase(it);
+}
+
+void PdfRender::AddBookmarksFromFile(int page_num)
+{
+	m_bookmarks.push_back(page_num);
+}
+
+void PdfRender::ClearBookmarks()
+{
+	m_bookmarks.clear();
 }
 
 void PdfRender::SetSearchPages()

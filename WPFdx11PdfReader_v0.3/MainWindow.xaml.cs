@@ -15,8 +15,7 @@ using System.Windows.Shapes;
 
 using System.Runtime.InteropServices;
 using System.Windows.Interop;
-using System.IO;
-using System.Diagnostics;
+
 
 namespace WPFdx11PdfReader_v0._3
 {
@@ -28,7 +27,10 @@ namespace WPFdx11PdfReader_v0._3
         bool lastVisible;
         TimeSpan lastRender;
         IntPtr m_surface;
-        Dictionary<int, MenuItem> m_bookmarks;
+        
+
+        BookmarksIO m_bookmarks;
+
         string m_filepath;
         int m_now_view;
 
@@ -38,7 +40,10 @@ namespace WPFdx11PdfReader_v0._3
             this.host.Loaded += new RoutedEventHandler(this.Host_Loaded);
             this.host.SizeChanged += new SizeChangedEventHandler(this.Host_SizeChanged);
             this.KeyUp += new KeyEventHandler(this.Key_Pressed);
-            m_bookmarks = new Dictionary<int, MenuItem>();
+            m_bookmarks = new BookmarksIO();
+            m_bookmarks.ReadBookmarks();
+
+            //m_bookmarks = new Dictionary<int, MenuItem>();
         }
 
         private static bool Init()
@@ -141,6 +146,16 @@ namespace WPFdx11PdfReader_v0._3
         private static void RemoveBookmark()
         {
             NativeMethods.InvokeWithDllProtection(NativeMethods.RemoveBookmark);
+        }
+
+        public static void AddBookmarksFromFile(int page_num)
+        {
+            NativeMethods.InvokeWithDllProtection(() => NativeMethods.AddBookmarksFromFile(page_num));
+        }
+
+        public static void ClearBookmarks()
+        {
+            NativeMethods.InvokeWithDllProtection(NativeMethods.ClearBookmarks);
         }
 
         private void Host_Loaded(object sender, RoutedEventArgs e)
@@ -307,6 +322,12 @@ namespace WPFdx11PdfReader_v0._3
             [DllImport("D3DVisualization.dll", CallingConvention = CallingConvention.Cdecl)]
             public static extern void RemoveBookmark();
 
+            [DllImport("D3DVisualization.dll", CallingConvention = CallingConvention.Cdecl)]
+            public static extern void AddBookmarksFromFile(int page_num);
+
+            [DllImport("D3DVisualization.dll", CallingConvention = CallingConvention.Cdecl)]
+            public static extern void ClearBookmarks();
+
             /// <summary>
             /// Method used to invoke an Action that will catch DllNotFoundExceptions and display a warning dialog.
             /// </summary>
@@ -357,33 +378,48 @@ namespace WPFdx11PdfReader_v0._3
         private void OpenBinding_Executed(object sender, ExecutedRoutedEventArgs e)
         {
             Microsoft.Win32.OpenFileDialog dlg = new Microsoft.Win32.OpenFileDialog();
+            ClearBookmarks();
+            ClearBookmarksMenu();
 
-            dlg.FileName = "Document"; // Default file name
-            dlg.DefaultExt = ".pdf"; // Default file extension
+            dlg.FileName = "Document";
+            dlg.DefaultExt = ".pdf";
             dlg.Filter = "Documents (.pdf; .xps; .cbz; .epub; .fb2; .zip; .png; .jpeg; .tiff)|*.zip;*.cbz;*.xps;*.epub;*.fb2;*.pdf;*.jpe;*.jpg;*.jpeg;*.jfif;*.tif;*.tiff|PDF Files (.pdf)|*.pdf|XPS Files (.xps)|*.xps|CBZ Files (.cbz;.zip)|*.zip;*.cbz|EPUB Files (.epub)|*.epub|FictionBook 2 Files (.fb2)|*.fb2|Image Files (.png;.jpeg;.tiff)|*.png;*.jpg;*.jpe;*.jpeg;*.jfif;*.tif;*.tiff|All Files|*||";
 	
-            // Show open file dialog box
             Nullable<bool> result = dlg.ShowDialog();
 
-            // Process open file dialog box results
             if (result == true)
             {
-                // Open document
                 m_filepath = dlg.FileName;
+                int bookmarks_num = m_bookmarks.CheckBookmarks(m_filepath);
+                if (bookmarks_num != 0)
+                {
+                    for (int i = 0; i < bookmarks_num; i++)
+                    {
+                        int bookmark_page = m_bookmarks.GetBookmark(i);
+
+                        MenuItem bookmark = new MenuItem();
+                        bookmark.Header = "Закладка " + (bookmark_page + 1);
+                        bookmark.Click += on_Added_Bookmark_Click;
+                        bookmark.GotFocus += on_GotFocus_Bookmark;
+                        bookmark.LostFocus += on_LostFocus_Bookmark;
+
+
+                        m_bookmarks.UpdateBookmarks(bookmark_page, bookmark);
+                        Bookmarks.Items.Add(bookmark);
+                        AddBookmark();
+                        
+                    }
+                }
                 OpenDocument(dlg.FileName);
             }
         }
 
         private void SaveAsBinding_Executed(object sender, ExecutedRoutedEventArgs e)
         {
-            // Instantiate the dialog box
             ResolutionDialog dlg = new ResolutionDialog(GetNowPageWidth(), GetNowPageHeight());
 
-            // Configure the dialog box
             dlg.Owner = this;
-            //dlg.DocumentMargin = this.documentTextBox.Margin;
 
-            // Open the dialog box modally 
             Nullable<bool> result = dlg.ShowDialog();
 
             if (result == true)
@@ -391,17 +427,14 @@ namespace WPFdx11PdfReader_v0._3
                 int percent = dlg.m_percent;
 
                 Microsoft.Win32.SaveFileDialog savedlg = new Microsoft.Win32.SaveFileDialog();
-                savedlg.FileName = "Document"; // Default file name
-                savedlg.DefaultExt = ".png"; // Default file extension
-                savedlg.Filter = "Image (.png)|*.png"; // Filter files by extension
+                savedlg.FileName = "Document";
+                savedlg.DefaultExt = ".png";
+                savedlg.Filter = "Image (.png)|*.png";
 
-                // Show save file dialog box
                 Nullable<bool> saveresult = savedlg.ShowDialog();
 
-                // Process save file dialog box results
                 if (saveresult == true)
                 {
-                    // Save document
                     string filename = savedlg.FileName;
                     SaveImage(percent, savedlg.FileName);
                 }
@@ -428,64 +461,43 @@ namespace WPFdx11PdfReader_v0._3
 
         private void AddBookmark_Click(object sender, RoutedEventArgs e)
         {
-            if (!m_bookmarks.ContainsKey(GetNowPage()))
+            MenuItem bookmark = new MenuItem();
+            bookmark.Header = "Закладка " + (GetNowPage() + 1);
+            bookmark.Click += on_Added_Bookmark_Click;
+            bookmark.GotFocus += on_GotFocus_Bookmark;
+            bookmark.LostFocus += on_LostFocus_Bookmark;
+            if (m_bookmarks.AddBookmark(GetNowPage(), bookmark, m_filepath))
             {
-                m_bookmarks.Add(GetNowPage(), new MenuItem());
-
-                m_bookmarks[GetNowPage()].Header = "Закладка " + (GetNowPage() + 1);
-                m_bookmarks[GetNowPage()].Click += on_Added_Bookmark_Click;
-                m_bookmarks[GetNowPage()].GotFocus += on_GotFocus_Bookmark;
-                m_bookmarks[GetNowPage()].LostFocus += on_LostFocus_Bookmark;
-
-                Bookmarks.Items.Add(m_bookmarks[GetNowPage()]);
+                Bookmarks.Items.Add(bookmark);
                 AddBookmark();
-
-                try
-                {
-                    using (BinaryWriter writer = new BinaryWriter(File.Open("bookmarks.bin", FileMode.Create)))
-                    {
-                        writer.Write(m_filepath);
-                        var keys = new List<int>(m_bookmarks.Keys);
-                        writer.Write(keys.Count);
-                        foreach (int key in keys)
-                        {
-                            writer.Write(key);
-                        }
-                    }
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show(ex.Message, "error");
-                }
             }
         }
 
         private void DeleteBookmark_Click(object sender, RoutedEventArgs e)
         {
-            if (m_bookmarks.ContainsKey(GetNowPage()))
-            {
-                Bookmarks.Items.Remove(m_bookmarks[GetNowPage()]);
-                m_bookmarks.Remove(GetNowPage());
+            if (m_bookmarks.RemoveBookmark(GetNowPage(), Bookmarks, m_filepath))
                 RemoveBookmark();
-            }
         }
 
         private void on_Added_Bookmark_Click(object sender, RoutedEventArgs e)
         {
-            int key = m_bookmarks.Where(kvp => kvp.Value == sender).Select(kvp => kvp.Key).FirstOrDefault();
-            ViewBookmark(key);
+            ViewBookmark(m_bookmarks.GetClickedBookmark(sender));
         }
 
         private void on_GotFocus_Bookmark(object sender, RoutedEventArgs e)
         {
             m_now_view = GetNowPage();
-            int key = m_bookmarks.Where(kvp => kvp.Value == sender).Select(kvp => kvp.Key).FirstOrDefault();
-            ViewBookmark(key);
+            ViewBookmark(m_bookmarks.GetClickedBookmark(sender));
         }
 
         private void on_LostFocus_Bookmark(object sender, RoutedEventArgs e)
         {
             ViewBookmark(m_now_view);
+        }
+
+        private void ClearBookmarksMenu()
+        {
+            m_bookmarks.ClearBookmarks(Bookmarks);
         }
     }
 }

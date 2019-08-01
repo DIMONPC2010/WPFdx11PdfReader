@@ -59,6 +59,7 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="BookmarksIO.cs" />
     <Compile Include="FindDialog.xaml.cs">
       <DependentUpon>FindDialog.xaml</DependentUpon>
     </Compile>
