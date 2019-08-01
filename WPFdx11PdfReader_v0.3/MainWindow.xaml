@@ -1,0 +1,39 @@
+﻿<Window x:Class="WPFdx11PdfReader_v0._3.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:dx="clr-namespace:Microsoft.Wpf.Interop.DirectX;assembly=Microsoft.Wpf.Interop.DirectX"
+        Title="WPFdx11PdfReader" Height="600" Width="1067">
+
+    <Window.CommandBindings>
+        <CommandBinding Command="Open" Executed="OpenBinding_Executed" />
+        <CommandBinding Command="SaveAs" Executed="SaveAsBinding_Executed" />
+        <CommandBinding Command="Find" Executed="FindBinding_Executed" />
+        <CommandBinding Command="Close" Executed="CloseBinding_Executed" />
+    </Window.CommandBindings>
+
+    <Grid x:Name="host">
+        <Rectangle Grid.Column="0" Fill="Black"/>
+        <Image Stretch="Fill" Name="ImageHost" >
+            <Image.Source>
+                <dx:D3D11Image x:Name="InteropImage" />
+            </Image.Source>
+        </Image>
+
+        <Menu Height="25" VerticalAlignment="Top">
+            <MenuItem Header="Файл">
+                <MenuItem Header="Открыть" Command="Open"></MenuItem>
+                <MenuItem Header="Сохранить страницу как..." Command="SaveAs"></MenuItem>
+                <MenuItem Header="Поиск..." Command="Find"></MenuItem>
+                <Separator />
+                <MenuItem Header="Выход" Command="Close"></MenuItem>
+            </MenuItem>
+            <MenuItem Header="Вид" >
+                <MenuItem Header="Дневной/ночной режим     D/N" Click="Day_NightClick"></MenuItem>
+            </MenuItem>
+            <MenuItem Name="Bookmarks" Header="Закладки" >
+                <MenuItem Header="Добавить страницу в закладки" Click="AddBookmark_Click"></MenuItem>
+                <MenuItem Header="Удалить страницу из закладок" Click="DeleteBookmark_Click"></MenuItem>
+            </MenuItem>
+        </Menu>
+    </Grid>
+</Window>
